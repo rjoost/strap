@@ -150,19 +150,6 @@ groups | grep $Q -E "\b(admin)\b" || abort "Add $USER to the admin group."
 # Prevent sleeping during script execution, as long as the machine is on AC power
 caffeinate -s -w $$ &
 
-# Set some basic security settings.
-logn "Configuring security settings:"
-defaults write com.apple.Safari \
-  com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaEnabled \
-  -bool false
-defaults write com.apple.Safari \
-  com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaEnabledForLocalFiles \
-  -bool false
-defaults write com.apple.screensaver askForPassword -int 1
-defaults write com.apple.screensaver askForPasswordDelay -int 0
-sudo_askpass defaults write /Library/Preferences/com.apple.alf globalstate -int 1
-sudo_askpass launchctl load /System/Library/LaunchDaemons/com.apple.alf.agent.plist 2>/dev/null
-
 if [ -n "$STRAP_GIT_NAME" ] && [ -n "$STRAP_GIT_EMAIL" ]; then
   LOGIN_TEXT=$(escape "Found this computer? Please contact $STRAP_GIT_NAME at $STRAP_GIT_EMAIL.")
   echo "$LOGIN_TEXT" | grep -q '[()]' && LOGIN_TEXT="'$LOGIN_TEXT'"
@@ -171,24 +158,6 @@ if [ -n "$STRAP_GIT_NAME" ] && [ -n "$STRAP_GIT_EMAIL" ]; then
     "$LOGIN_TEXT"
 fi
 logk
-
-# Check and enable full-disk encryption.
-logn "Checking full-disk encryption status:"
-if fdesetup status | grep $Q -E "FileVault is (On|Off, but will be enabled after the next restart)."; then
-  logk
-elif [ -n "$STRAP_CI" ]; then
-  echo
-  logn "Skipping full-disk encryption for CI"
-elif [ -n "$STRAP_INTERACTIVE" ]; then
-  echo
-  log "Enabling full-disk encryption on next reboot:"
-  sudo_askpass fdesetup enable -user "$USER" \
-    | tee ~/Desktop/"FileVault Recovery Key.txt"
-  logk
-else
-  echo
-  abort "Run 'sudo fdesetup enable -user \"$USER\"' to enable full-disk encryption."
-fi
 
 # Install the Xcode Command Line Tools.
 if ! [ -f "/Library/Developer/CommandLineTools/usr/bin/git" ]
@@ -326,13 +295,8 @@ if softwareupdate -l 2>&1 | grep $Q "No new software available."; then
   logk
 else
   echo
-  log "Installing software updates:"
-  if [ -z "$STRAP_CI" ]; then
-    sudo_askpass softwareupdate --install --all
-    xcode_license
-  else
-    echo "Skipping software updates for CI"
-  fi
+  echo "INFO: Software updates available but not installing."
+  echo "--> $*"
   logk
 fi
 
